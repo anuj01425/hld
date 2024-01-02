@@ -1,0 +1,144 @@
+Functional Requirement
+1.Supports put operation
+put("a",1)
+2.Supports get operation
+get("a") //Output:1
+
+Non functional Requirements
+1. Key-value size : Debatable
+2. Availability : System should be able to respond in case of failures
+3. Scalability : System should be able to store large data set
+4. Automatic scaling : System should be able to scale automatically as per the load
+5. Latency : Minimal
+6. Tunable consistency
+
+
+CAP Theorem :
+Impossible to simultaneously provide more than two out of the following three guarantees. In real world because
+network failure is unavoidable,so we always take that into consideration (system should function), which means you can either choose
+CP or AP.
+
+Single server KV Architecture
+
+1.Keep everything in-memory as in the form of hash table
+2.To control size -> either store them in compress format or store them in disk (in-memory will only use
+frequent data).
+3.As the size of the data is going to increase -> we will hit the bottleneck
+
+Distributed kv architecture
+
+System Components
+
+1.Data Partitioning
+2.Replication
+3.Consistency and Inconsistency ressolution
+4.Failure handling
+5.System architecture
+
+
+Data Partitioning
+
+1.Range based : Map the value range of keys to host. e.g if keys will be in range 1-100, map it to host 1. Prone to
+hotspots.
+2. Hash based. Good hash function can map the keys to host. server = hash(key)%(number of host). Problem being if
+the number of host changes, lot of the keys will be remapped.
+3. Consistent Hashing
+
+
+Replication
+Data can be replicated for the selected N clockwise nodes in consistent hashing. To avoid failure in same data center/
+diff avalibility zones. In case of master/slave with sharding, they tends to being in same datacenter. Hence they need
+to be copied in the other nodes also acorss diff data center and avalibility zones.
+
+
+Consistency
+
+Data is replicated at multiple nodes. It needs to be syncronized. Quorm based approach. If N is the number of replica for which
+data is replicated, w is the write quorm and r is the read quorm
+1. strong consistency is guranted if r+w>N.
+2.r=1 and w=N. fast read is guranteed.
+3.w=1 and r=N. fast write is guranteed.
+4.w+r <=N .strong consistency  is not guranteed.
+All this is handled by coordinator node which is usually the primary node obtain from consistent hashing.
+
+Inconsistency ressolution
+
+when it can happen ?
+
+Inconsistency ressolution
+w=2;
+1.Client A is writing to 3 nodes. Node 1,2 and 3. All success.
+2.Client B is writing to 3 nodes simultanenously.Node 2 was offline. Result got to 1 and 3.
+If each node simply overwrote the value for a key whenever it received a write request from a client,
+the nodes would become permanently inconsistent. 1 and 3 think's it's 3 and 1 think it's 1.
+In order to become eventually consistent, the replicas should converge toward the same value.
+
+Ways :
+Last write wins (discarding concurrent writes)
+we can attach a timestamp to each write, pick the biggest timestamp as the most “recent,”
+and discard any writes with an earlier timestamp.
+This conflict resolution algorithm, called last write wins (LWW), is the only sup‐ ported conflict resolution method in Cassandra.
+
+
+LWW achieves the goal of eventual convergence, but at the cost of durability:
+if there are several concurrent writes to the same key,
+even if they were all reported as suc‐ cessful to the client (because they were written to w replicas),
+only one of the writes will survive and the others will be silently discarded.
+
+
+Versinoning.
+
+Can maintain different version of the values corresponding to key and conflict can be ressolved by client.
+e.g in terms of single server.
+1.The server maintains a version number for every key, increments the version number every time that key is written, and stores the new version number along with the value written
+2..Any write by client will be first done through read. Sent a read request. Client will send all the concurrent values
+along with latest version number existed.
+3.Client will ressolve the conflict and sent the value to server along with version number.
+4..Server will overwrite all the values with that or lower version number  but it must keep all values
+with a higher ver‐ sion number.
+
+It can be extented to with multiple nodes. It's called verison vector.
+
+
+
+Handling failures
+
+How to detect if a particular node is down ?
+Gossip protocol.
+
+
+Databases with appropriately configured quorums can tolerate the failure of individual
+nodes without the need for failover. They can also tolerate individual nodes going slow,
+because requests don’t have to wait for all n nodes to respond—they can return when w or r nodes have responded.
+
+However, quorums (as described so far) are not as fault-tolerant as they could be. A network interruption can easily cut off a client from a large number of database nodes.
+Although those nodes are alive, and other clients may be able to connect to them, to a client that is cut off from the database nodes,
+they might as well be dead. In this situation, it’s likely that fewer than w or r reachable nodes remain,
+so the client can no longer reach a quorum.
+
+sloppy quorum to the rescue. we accept writes anyway,
+and write them to some nodes that are reachable but aren’t among the n nodes on which the value usually lives.
+Sloppy quorums are particularly useful for increasing write availability: as long as any w nodes are available, the database can accept writes.
+However, this means that even when w + r > n, you cannot be sure to read the latest value for a key, because the latest
+value may have been temporarily written to some nodes outside of n.
+
+
+Architecutre
+
+1.Client request will be redirected to cordinator nodes. It'll be responsbile for read and write quorom.
+
+
+write path
+Underline data storage : LSM trees.
+
+1.Write first in WAL.
+2.Then write in-memory AVL tree sorted by key.
+3.Flush to disk when it reach to particular threshold.
+
+
+
+Read Path
+1.First check the in-memory if key exist. If not
+1.check the bloom filter if the key exist or not. If yes,check different ssl tables in disk. We have sparse index correspoonding
+to each ss tables to speed up the process.Also , compaction happens in the background to make sure the number should be in
+within the range.
