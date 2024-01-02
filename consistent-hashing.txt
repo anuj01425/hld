@@ -1,0 +1,13 @@
+Ways to map the keys to host
+
+    1. Range based : Map the value range of keys to host. e.g if keys will be in range 1-100, map it to host 1. Prone to
+       hotspots.
+    2. Hash based. Good hash function can map the keys to host. server = hash(key)%(number of host). Problem being if
+       the number of host changes, lot of the keys will be remapped.
+    3. Consistent Hashing : This is the most popular way of mapping the keys to host. Limitation of hash based approach comes
+       from modulo. If we can somehow eliminate the modulo, we can make the keys mapping independent on number of host.
+       We can take the hash function as sha256 which will always give the value from 0 to 2^256-1.
+       If we have to map the keys, we need to find the next greatest sha256(host) which is present. If no such host are
+       there, it can be mapped to the first host. Image this as the circular ring.
+       All the details are here
+       https://arpitbhayani.me/blogs/consistent-hashing/
