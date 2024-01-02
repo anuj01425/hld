@@ -1,0 +1,49 @@
+Functional Requirement
+
+1.64bit
+2.Numeric
+3.Increasing with time
+4.Unique
+
+
+Non Functional Requirement
+1.10k id/per sec
+
+
+Solution
+
+1.UUID
+128bit aplhanumeric number
+Totally random
+
+
+2.Database Id
+1.Incrementing auto sequence number
+2.Single number of database server -> Not scalable.
+
+
+3.Application level
+Multiple database will be given a range by a seperate microservice. This database will increment the value
+within the range and if exhausted, ask for the detail.Range service can be SPF untill and unless other instances or
+services are there. If they are there, addition of server can cause the issue.
+
+3.Unix timestamp
+
+Server that returns the id based on unix timestamp. For scalability we can use multiple server and for clock sync to make
+sure in a single milli second , they return the same value we can use NTP protocol (https://en.wikipedia.org/wiki/Network_Time_Protocol).
+Problem is a single server cannot generate more than 1k/sec (as we are measuring in milli second).
+
+4. Twitter snowflake
+A custom 64bit
+where 1bit -> signed/unsigned bit
+41bit-> timestamp bit
+10bit-> workerid
+12bit ->local counter (reset every millisecond) per worker
+
+
+
+Good description
+https://www.youtube.com/watch?v=V3btjD1Jv6Y&ab_channel=CrushingTechEducation
+
+
+
